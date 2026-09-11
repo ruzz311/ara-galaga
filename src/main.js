@@ -1,8 +1,9 @@
-import { CASH_CANNON_DURATION_MS, enemyPoints, shotProfile, waveRows } from "./game-rules.js";
+import { CASH_CANNON_DURATION_MS, enemyPoints, shotProfile, waveDifficulty, waveRows } from "./game-rules.js";
 
 const WIDTH = 480;
 const HEIGHT = 780;
 const HORIZON_Y = 590;
+const MAX_HEALTH = 3;
 const COLORS = { cyan: 0x4bf5ff, pink: 0xf42cff, gold: 0xffdb4b, purple: 0x9f65ff, ink: 0x080316 };
 const BEST_SCORE_KEY = "clovie-neon-dividend-best-score";
 
@@ -78,6 +79,10 @@ class BootScene extends Phaser.Scene {
     graphics.lineStyle(2, 0x063b27).lineBetween(26, 6, 26, 20);
     graphics.strokePoints([{ x: 31, y: 8 }, { x: 21, y: 8 }, { x: 20, y: 11 }, { x: 30, y: 14 }, { x: 29, y: 18 }, { x: 20, y: 18 }]);
     graphics.generateTexture("cash-stack", 44, 34).clear();
+    graphics.fillStyle(0x17384e).fillCircle(18, 18, 18);
+    graphics.lineStyle(2, COLORS.cyan).strokeCircle(18, 18, 16);
+    graphics.fillStyle(0x78ffd2).fillRoundedRect(14, 6, 8, 24, 2).fillRoundedRect(6, 14, 24, 8, 2);
+    graphics.generateTexture("health-drop", 36, 36).clear();
     graphics.fillStyle(0x271047, 1).fillCircle(28, 28, 28);
     graphics.lineStyle(3, COLORS.pink).strokeCircle(28, 28, 25);
     graphics.fillStyle(COLORS.pink).fillTriangle(28, 5, 52, 45, 4, 45);
@@ -162,12 +167,29 @@ class BattleScene extends Phaser.Scene {
     this.scoreText = this.add.text(22, 17, "SCORE 000000", { ...style, fontSize: "17px", color: "#ffdb4b" });
     this.waveText = this.add.text(WIDTH / 2, 17, "WAVE 01", { ...style, fontSize: "17px", color: "#4bf5ff" }).setOrigin(.5, 0);
     this.bestText = this.add.text(WIDTH - 22, 17, `BEST ${formatScore(this.highScore)}`, { ...style, fontSize: "13px", color: "#ffdb4b" }).setOrigin(1, 0);
-    this.lifeText = this.add.text(WIDTH - 22, 39, "CLOVERS x3", { ...style, fontSize: "13px", color: "#f7efff" }).setOrigin(1, 0);
+    this.add.text(22, 43, "HEALTH", { ...style, fontSize: "9px", color: "#bdafda" });
+    this.healthBar = this.add.graphics();
+    this.drawHealth();
     this.powerText = this.add.text(WIDTH / 2, 47, "", { ...style, fontSize: "11px", color: "#ffdb4b" }).setOrigin(.5, 0);
     this.soundText = this.add.text(WIDTH - 15, HEIGHT - 17, "SFX: ON [M]", { ...style, fontSize: "9px", color: "#bdafda" }).setOrigin(1);
   }
+  drawHealth() {
+    const x = 72;
+    const y = 44;
+    const segmentWidth = 22;
+    const segmentGap = 4;
+    this.healthBar.clear().fillStyle(0x1c1232, 1).fillRoundedRect(x - 3, y - 3, 80, 14, 3);
+    for (let index = 0; index < 3; index++) {
+      const active = index < this.lives;
+      const color = this.lives === 1 ? COLORS.pink : COLORS.cyan;
+      this.healthBar.fillStyle(active ? color : 0x372644, active ? 1 : .8).fillRoundedRect(x + index * (segmentWidth + segmentGap), y, segmentWidth, 8, 2);
+    }
+  }
   spawnWave() {
     this.transitioningWave = false;
+    this.difficulty = waveDifficulty(this.wave);
+    this.powerUpsDropped = 0;
+    this.healthDropDropped = false;
     const announcement = this.add.text(WIDTH / 2, 95, `WAVE ${String(this.wave).padStart(2, "0")} // INCOMING`, { fontFamily: "Orbitron", fontSize: "20px", color: "#f42cff" })
       .setOrigin(.5).setDepth(3).setScale(.8);
     this.tweens.add({ targets: announcement, alpha: 0, scale: 1.1, duration: 1200, delay: 350, onComplete: () => announcement.destroy() });
@@ -181,25 +203,25 @@ class BattleScene extends Phaser.Scene {
       this.tweens.add({ targets: enemy, y: targetY, duration: 650 + row * 130, ease: "Sine.easeOut", delay: col * 45 });
     }
     this.waveText.setText(`WAVE ${String(this.wave).padStart(2, "0")}`);
-    this.time.delayedCall(2600, () => this.beginAttacks());
+    this.time.delayedCall(this.difficulty.entryDelay, () => this.beginAttacks());
   }
   beginAttacks() {
     if (this.lives <= 0) return;
-    this.attackTimer = this.time.addEvent({ delay: Math.max(900, 2200 - this.wave * 90), loop: true, callback: () => this.sendDiver() });
-    this.fireTimer = this.time.addEvent({ delay: Math.max(950, 1750 - this.wave * 55), loop: true, callback: () => this.fireEnemyShot() });
-    this.formationTimer = this.time.addEvent({ delay: 1300, loop: true, callback: () => this.sweepFormation() });
+    this.attackTimer = this.time.addEvent({ delay: this.difficulty.diveDelay, loop: true, callback: () => this.sendDiver() });
+    this.fireTimer = this.time.addEvent({ delay: this.difficulty.enemyFireDelay, loop: true, callback: () => this.fireEnemyShot() });
+    this.formationTimer = this.time.addEvent({ delay: this.difficulty.formationDelay, loop: true, callback: () => this.sweepFormation() });
   }
   sweepFormation() {
     const formation = this.enemies.getChildren().filter(enemy => enemy.active && !enemy.getData("diving"));
     if (!formation.length || this.lives <= 0 || this.paused) return;
-    const step = 18;
+    const step = this.difficulty.formationStep;
     const minX = Math.min(...formation.map(enemy => enemy.getData("homeX")));
     const maxX = Math.max(...formation.map(enemy => enemy.getData("homeX")));
     if (minX + this.formationDirection * step < 45 || maxX + this.formationDirection * step > WIDTH - 45) this.formationDirection *= -1;
     formation.forEach(enemy => {
       const homeX = enemy.getData("homeX") + this.formationDirection * step;
       enemy.setData("homeX", homeX);
-      this.tweens.add({ targets: enemy, x: homeX, y: enemy.getData("homeY") + Phaser.Math.Between(-5, 5), duration: 850, ease: "Sine.easeInOut" });
+      this.tweens.add({ targets: enemy, x: homeX, y: enemy.getData("homeY") + Phaser.Math.Between(-5, 5), duration: this.difficulty.formationDuration, ease: "Sine.easeInOut" });
     });
   }
   sendDiver() {
@@ -211,10 +233,10 @@ class BattleScene extends Phaser.Scene {
     this.tweens.chain({
       targets: enemy,
       tweens: [
-        { x: bankX, y: 380, angle: Phaser.Math.Between(-35, 35), duration: 700, ease: "Sine.easeInOut" },
-        { x: Phaser.Math.Clamp(this.player.x + Phaser.Math.Between(-95, 95), 45, WIDTH - 45), y: HEIGHT + 65, angle: Phaser.Math.Between(-50, 50), duration: 1_000, ease: "Sine.easeIn" },
-        { x: enemy.getData("homeX"), y: -65, angle: 0, duration: 720, ease: "Sine.easeOut" },
-        { x: enemy.getData("homeX"), y: enemy.getData("homeY"), angle: 0, duration: 820, ease: "Sine.easeInOut" },
+        { x: bankX, y: 380, angle: Phaser.Math.Between(-35, 35), duration: this.difficulty.diveBankDuration, ease: "Sine.easeInOut" },
+        { x: Phaser.Math.Clamp(this.player.x + Phaser.Math.Between(-95, 95), 45, WIDTH - 45), y: HEIGHT + 65, angle: Phaser.Math.Between(-50, 50), duration: this.difficulty.diveExitDuration, ease: "Sine.easeIn" },
+        { x: enemy.getData("homeX"), y: -65, angle: 0, duration: this.difficulty.diveReturnDuration, ease: "Sine.easeOut" },
+        { x: enemy.getData("homeX"), y: enemy.getData("homeY"), angle: 0, duration: this.difficulty.diveSettleDuration, ease: "Sine.easeInOut" },
       ],
       onComplete: () => { if (enemy.active) enemy.setData("diving", false); },
     });
@@ -226,7 +248,7 @@ class BattleScene extends Phaser.Scene {
     const fireball = this.spawnProjectile(this.enemyShots, "fireball", enemy.x, enemy.y + 28, 4_000);
     if (!fireball) return;
     fireball.setCircle(11).setAngularVelocity(360);
-    this.physics.moveToObject(fireball, this.player, 240 + this.wave * 8);
+    this.physics.moveToObject(fireball, this.player, this.difficulty.enemyFireSpeed);
     sound.beep(170, .07, "sawtooth", .025);
   }
   spawnProjectile(group, texture, x, y, lifetimeMs = 1_200) {
@@ -300,14 +322,28 @@ class BattleScene extends Phaser.Scene {
     }
     sound.beep(120, .11, "sawtooth", .05);
     this.add.particles(enemy.x, enemy.y, "laser", { speed: { min: 60, max: 180 }, scale: { start: .9, end: 0 }, lifespan: 380, quantity: 10, tint: [COLORS.cyan, COLORS.pink, COLORS.gold] }).explode(10);
-    const dropRoll = Phaser.Math.Between(1, 100);
-    if (dropRoll <= 19) {
+    if (this.shouldDropHealth()) {
+      const healthDrop = this.drops.create(enemy.x, enemy.y, "health-drop").setCircle(14).setVelocityY(this.difficulty.powerUpFallSpeed);
+      healthDrop.setData("kind", "health");
+      this.tweens.add({ targets: healthDrop, scale: { from: .85, to: 1.15 }, duration: 280, yoyo: true, repeat: -1 });
+      this.healthDropDropped = true;
+    } else {
+      const dropRoll = Phaser.Math.Between(1, 100);
+      if (dropRoll <= 19 && this.powerUpsDropped < this.difficulty.powerUpsPerWave) {
       const isBurstDrop = dropRoll > 13;
-      const drop = this.drops.create(enemy.x, enemy.y, isBurstDrop ? "cash-stack" : "money").setCircle(12).setVelocityY(100);
+      const drop = this.drops.create(enemy.x, enemy.y, isBurstDrop ? "cash-stack" : "money").setCircle(12).setVelocityY(this.difficulty.powerUpFallSpeed);
       drop.setData("kind", isBurstDrop ? "burst" : "cash");
       this.tweens.add({ targets: drop, angle: 360, duration: 800, repeat: -1 });
+      this.powerUpsDropped++;
+      }
     }
     enemy.disableBody(true, true);
+  }
+  shouldDropHealth() {
+    return this.lives < MAX_HEALTH
+      && !this.healthDropDropped
+      && this.wave % this.difficulty.healthDropEveryWaves === 0
+      && Phaser.Math.Between(1, 100) <= this.difficulty.healthDropChancePerEnemy;
   }
   detonateCashStack(x, y, radius) {
     this.cameras.main.shake(90, .006);
@@ -317,9 +353,16 @@ class BattleScene extends Phaser.Scene {
     });
   }
   collectDrop(player, drop) {
-    const isBurstDrop = drop.getData("kind") === "burst";
+    const kind = drop.getData("kind");
     drop.disableBody(true, true);
-    if (isBurstDrop) this.burstUntil = this.time.now + CASH_CANNON_DURATION_MS;
+    if (kind === "health") {
+      this.lives = Math.min(MAX_HEALTH, this.lives + this.difficulty.healthRestoredPerDrop);
+      this.drawHealth();
+      sound.beep(1_040, .2, "sine", .08);
+      this.cameras.main.flash(150, 100, 255, 210);
+      return;
+    }
+    if (kind === "burst") this.burstUntil = this.time.now + CASH_CANNON_DURATION_MS;
     else this.cashUntil = this.time.now + CASH_CANNON_DURATION_MS;
     sound.beep(880, .17, "triangle", .07);
     this.cameras.main.flash(130, 255, 210, 60);
@@ -328,7 +371,8 @@ class BattleScene extends Phaser.Scene {
     if (player.getData("invulnerable")) return;
     if (enemy.texture.key === "fireball") this.releaseProjectile(enemy);
     else enemy.disableBody(true, true);
-    this.lives--; this.lifeText.setText(`CLOVERS x${this.lives}`);
+    this.lives--;
+    this.drawHealth();
     player.setData("invulnerable", true).setTint(0xff7799); sound.beep(90, .3, "sawtooth", .08);
     this.cameras.main.shake(170, .012);
     this.tweens.add({ targets: player, alpha: .2, yoyo: true, repeat: 7, duration: 90, onComplete: () => {

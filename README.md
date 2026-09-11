@@ -26,3 +26,14 @@ Then open `http://127.0.0.1:4173`.
 npm test
 node --check src/main.js
 ```
+
+## Difficulty tuning
+
+Every wave becomes faster and more aggressive. The full set of caps, starting
+values, and per-wave increments is in `WAVE_DIFFICULTY` in
+[`src/game-rules.js`](./src/game-rules.js). Adjust that one object to rebalance
+enemy shot frequency and speed, formation movement, each phase of the looping
+dive route, the maximum `powerUpsPerWave` drop count, and
+`powerUpFallSpeed` progression. The same object contains `healthDropEveryWaves`,
+`healthDropChancePerEnemy`, and `healthRestoredPerDrop` for the special health
+drop that can appear at most once during each eligible wave.
