@@ -37,3 +37,7 @@ dive route, the maximum `powerUpsPerWave` drop count, and
 `powerUpFallSpeed` progression. The same object contains `healthDropEveryWaves`,
 `healthDropChancePerEnemy`, and `healthRestoredPerDrop` for the special health
 drop that can appear at most once during each eligible wave.
+
+The `entryDelay` setting controls when a new formation begins its first sweep.
+It is set to 1200 ms to match the longest entry route, so enemies move as soon
+as they have occupied their formation positions.

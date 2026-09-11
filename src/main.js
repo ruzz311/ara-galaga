@@ -207,6 +207,7 @@ class BattleScene extends Phaser.Scene {
   }
   beginAttacks() {
     if (this.lives <= 0) return;
+    this.sweepFormation();
     this.attackTimer = this.time.addEvent({ delay: this.difficulty.diveDelay, loop: true, callback: () => this.sendDiver() });
     this.fireTimer = this.time.addEvent({ delay: this.difficulty.enemyFireDelay, loop: true, callback: () => this.fireEnemyShot() });
     this.formationTimer = this.time.addEvent({ delay: this.difficulty.formationDelay, loop: true, callback: () => this.sweepFormation() });

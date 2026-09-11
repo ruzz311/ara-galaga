@@ -7,7 +7,7 @@ export const WAVE_DIFFICULTY = {
   healthDropEveryWaves: 3,
   healthDropChancePerEnemy: 24,
   healthRestoredPerDrop: 1,
-  entryDelay: { initial: 2_600, perWave: 110, minimum: 1_350 },
+  entryDelay: { initial: 1_200, perWave: 0, minimum: 1_200 },
   enemyFireDelay: { initial: 1_750, perWave: 95, minimum: 650 },
   enemyFireSpeed: { initial: 240, perWave: 12, maximum: 385 },
   formationDelay: { initial: 1_300, perWave: 65, minimum: 560 },
