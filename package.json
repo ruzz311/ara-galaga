@@ -1,0 +1,11 @@
+{
+  "name": "clovie-neon-dividend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "An original synthwave arcade shooter starring Clovie.",
+  "scripts": {
+    "start": "python3 -m http.server 4173",
+    "test": "node --test"
+  }
+}

@@ -1,0 +1,77 @@
+@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;700&display=swap");
+
+:root {
+  color: #f7efff;
+  background: #080316;
+  font-family: Rajdhani, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% -20%, #4b126f 0%, transparent 42%),
+    linear-gradient(145deg, #050210 20%, #100726 55%, #050210);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  opacity: .25;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, #fff 3px 4px);
+  mix-blend-mode: overlay;
+}
+
+.arcade-shell {
+  width: min(100%, 560px);
+  height: 100dvh;
+  padding: 12px 20px 10px;
+  text-align: center;
+  display: grid;
+  grid-template-rows: auto auto auto;
+  align-content: center;
+}
+
+header { text-shadow: 0 0 14px #f42cff; }
+.eyebrow { margin: 0; color: #4bf5ff; font: 700 11px Orbitron, sans-serif; letter-spacing: .35em; }
+h1 { margin: 2px 0 10px; font: 900 clamp(26px, 5vw, 46px) Orbitron, sans-serif; letter-spacing: .09em; }
+h1 span { color: #ffdb4b; text-shadow: 0 0 12px #ffb000; }
+
+#game {
+  --stage-height: calc(100dvh - 121px);
+  width: min(100%, calc(var(--stage-height) * 0.6154));
+  height: var(--stage-height);
+  justify-self: center;
+  border: 2px solid #f42cff;
+  box-shadow: 0 0 8px #f42cff, 0 0 30px #641fa8, inset 0 0 20px #1df5ff55;
+  line-height: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(ellipse at 50% 36%, #241045 0%, #0b061d 42%, #080316 76%),
+    repeating-linear-gradient(0deg, transparent 0 3px, #ffffff08 3px 4px);
+}
+
+canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+footer { display: flex; justify-content: center; flex-wrap: wrap; gap: 18px; margin-top: 10px; color: #bcafd4; font: 700 13px Orbitron, sans-serif; letter-spacing: .08em; }
+footer b { color: #4bf5ff; }
+
+@media (max-width: 600px) {
+  .arcade-shell { padding: 8px 0; }
+  h1 { margin-bottom: 5px; }
+  #game { border-width: 1px; }
+  footer { font-size: 9px; gap: 9px; }
+}
