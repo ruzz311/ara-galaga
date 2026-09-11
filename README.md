@@ -41,3 +41,11 @@ drop that can appear at most once during each eligible wave.
 The `entryDelay` setting controls when a new formation begins its first sweep.
 It is set to 1200 ms to match the longest entry route, so enemies move as soon
 as they have occupied their formation positions.
+
+Enemy durability is also configurable there: yellow enemies start at 3 hits,
+pink enemies at 2, and teal enemies at 1. `enemyHealthIncreaseEveryWaves`
+adds one required hit to every enemy type after each completed five-wave block.
+
+Standard shots deal 1 damage. The named damage constants in
+[`src/game-rules.js`](./src/game-rules.js) set Cash Cannon coin shots to +0.5
+damage (1.5 total) and Dividend Burst bill stacks to +1.0 damage (2 total).

@@ -1,4 +1,4 @@
-import { CASH_CANNON_DURATION_MS, enemyPoints, shotProfile, waveDifficulty, waveRows } from "./game-rules.js";
+import { CASH_CANNON_DURATION_MS, DIVIDEND_BURST_DAMAGE_BONUS, enemyHealth, enemyPoints, shotProfile, STANDARD_SHOT_DAMAGE, waveDifficulty, waveRows } from "./game-rules.js";
 
 const WIDTH = 480;
 const HEIGHT = 780;
@@ -197,9 +197,12 @@ class BattleScene extends Phaser.Scene {
     const types = ["enemy-a", "enemy-b", "enemy-c"];
     for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
       const x = 62 + col * 59; const targetY = 145 + row * 60;
-      const enemy = this.enemies.create(x, -50 - row * 40, types[(row + col) % types.length]);
-      enemy.setData({ homeX: x, homeY: targetY, points: enemyPoints(rows, row), diving: false });
-      enemy.setCircle(22); enemy.setVelocityY(0);
+      const type = types[(row + col) % types.length];
+      const health = enemyHealth(this.wave, type);
+      const enemy = this.enemies.create(x, -50 - row * 40, type);
+      enemy.setData({ homeX: x, homeY: targetY, health, maxHealth: health, points: enemyPoints(rows, row), diving: false }).setDepth(2).setScale(.84);
+      enemy.setCircle(18); enemy.setVelocityY(0);
+      this.createEnemyGlow(enemy);
       this.tweens.add({ targets: enemy, y: targetY, duration: 650 + row * 130, ease: "Sine.easeOut", delay: col * 45 });
     }
     this.waveText.setText(`WAVE ${String(this.wave).padStart(2, "0")}`);
@@ -269,6 +272,7 @@ class BattleScene extends Phaser.Scene {
   }
   update(time) {
     if (this.paused || this.lives <= 0) return;
+    this.syncEnemyGlows();
     const left = this.cursors.left.isDown || this.keys.A.isDown;
     const right = this.cursors.right.isDown || this.keys.D.isDown;
     this.player.setVelocityX(left ? -380 : right ? 380 : 0);
@@ -301,7 +305,7 @@ class BattleScene extends Phaser.Scene {
     const bullet = this.spawnProjectile(this.bullets, texture, this.player.x, this.player.y - 45, burst ? 1_700 : cash ? 1_400 : 1_100);
     if (!bullet) return;
     bullet.setVelocityY(burst ? -440 : profile.velocityY);
-    bullet.setData("damage", burst ? 2 : profile.damage).setData("splashRadius", burst ? 105 : 0);
+    bullet.setData("damage", burst ? STANDARD_SHOT_DAMAGE + DIVIDEND_BURST_DAMAGE_BONUS : profile.damage).setData("splashRadius", burst ? 105 : 0);
     this.lastShot = time; sound.beep(burst ? 110 : cash ? 720 : 340, burst ? .11 : .045, burst ? "sawtooth" : cash ? "triangle" : "square");
   }
   hitEnemy(bullet, enemy) {
@@ -313,8 +317,13 @@ class BattleScene extends Phaser.Scene {
   }
   damageEnemy(enemy, damage) {
     if (!enemy.active) return;
-    const health = (enemy.getData("health") ?? (enemy.texture.key === "enemy-c" ? 2 : 1)) - damage;
-    if (health > 0) { enemy.setData("health", health); enemy.setTint(COLORS.gold); this.time.delayedCall(90, () => enemy.clearTint()); return; }
+    const health = enemy.getData("health") - damage;
+    if (health > 0) {
+      enemy.setData("health", health);
+      this.updateEnemyGlow(enemy);
+      enemy.setTint(COLORS.gold); this.time.delayedCall(90, () => { if (enemy.active) enemy.clearTint(); });
+      return;
+    }
     this.score += enemy.getData("points"); this.scoreText.setText(`SCORE ${formatScore(this.score)}`);
     if (this.score > this.highScore) {
       this.highScore = this.score;
@@ -338,7 +347,37 @@ class BattleScene extends Phaser.Scene {
       this.powerUpsDropped++;
       }
     }
+    this.removeEnemyGlow(enemy);
     enemy.disableBody(true, true);
+  }
+  createEnemyGlow(enemy) {
+    const glow = this.add.circle(enemy.x, enemy.y, 25, this.enemyGlowColor(enemy), .1).setDepth(1).disableInteractive();
+    glow.setBlendMode(Phaser.BlendModes.ADD).setStrokeStyle(2, this.enemyGlowColor(enemy), .25);
+    enemy.setData("glow", glow);
+  }
+  updateEnemyGlow(enemy) {
+    const maxHealth = enemy.getData("maxHealth");
+    const intensity = 1 - enemy.getData("health") / maxHealth;
+    const glow = enemy.getData("glow");
+    if (!glow) return;
+    const color = this.enemyGlowColor(enemy);
+    glow.setRadius(25 + intensity * 13).setFillStyle(color, .1 + intensity * .26).setStrokeStyle(2 + intensity * 4, color, .25 + intensity * .7);
+  }
+  removeEnemyGlow(enemy) {
+    const glow = enemy.getData("glow");
+    if (glow) glow.destroy();
+    enemy.setData("glow", null);
+  }
+  enemyGlowColor(enemy) {
+    return enemy.texture.key === "enemy-a" ? COLORS.pink : enemy.texture.key === "enemy-b" ? COLORS.cyan : COLORS.gold;
+  }
+  syncEnemyGlows() {
+    this.enemies.getChildren().forEach(enemy => {
+      const glow = enemy.getData("glow");
+      if (!glow) return;
+      if (!enemy.active) this.removeEnemyGlow(enemy);
+      else glow.setPosition(enemy.x, enemy.y);
+    });
   }
   shouldDropHealth() {
     return this.lives < MAX_HEALTH
@@ -371,7 +410,10 @@ class BattleScene extends Phaser.Scene {
   hitPlayer(player, enemy) {
     if (player.getData("invulnerable")) return;
     if (enemy.texture.key === "fireball") this.releaseProjectile(enemy);
-    else enemy.disableBody(true, true);
+    else {
+      this.removeEnemyGlow(enemy);
+      enemy.disableBody(true, true);
+    }
     this.lives--;
     this.drawHealth();
     player.setData("invulnerable", true).setTint(0xff7799); sound.beep(90, .3, "sawtooth", .08);

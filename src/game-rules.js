@@ -1,7 +1,16 @@
 export const CASH_CANNON_DURATION_MS = 8_000;
+export const STANDARD_SHOT_DAMAGE = 1;
+export const CASH_CANNON_DAMAGE_BONUS = .5;
+export const DIVIDEND_BURST_DAMAGE_BONUS = 1;
 
 // Adjust this single object to rebalance how quickly each wave escalates.
 export const WAVE_DIFFICULTY = {
+  enemyBaseHealth: {
+    "enemy-a": 2,
+    "enemy-b": 1,
+    "enemy-c": 3,
+  },
+  enemyHealthIncreaseEveryWaves: 5,
   powerUpsPerWave: 2,
   powerUpFallSpeed: { initial: 100, perWave: 14, maximum: 240 },
   healthDropEveryWaves: 3,
@@ -44,6 +53,12 @@ export function waveDifficulty(wave) {
   };
 }
 
+export function enemyHealth(wave, enemyType) {
+  const baseHealth = WAVE_DIFFICULTY.enemyBaseHealth[enemyType];
+  if (!baseHealth) throw new Error(`Unknown enemy type: ${enemyType}`);
+  return baseHealth + Math.floor((Math.max(1, wave) - 1) / WAVE_DIFFICULTY.enemyHealthIncreaseEveryWaves);
+}
+
 export function waveRows(wave) {
   return Math.min(3 + Math.floor(wave / 2), 5);
 }
@@ -54,6 +69,6 @@ export function enemyPoints(rows, row) {
 
 export function shotProfile(cashCannonActive) {
   return cashCannonActive
-    ? { damage: 2, cooldownMs: 135, velocityY: -530 }
-    : { damage: 1, cooldownMs: 230, velocityY: -650 };
+    ? { damage: STANDARD_SHOT_DAMAGE + CASH_CANNON_DAMAGE_BONUS, cooldownMs: 135, velocityY: -530 }
+    : { damage: STANDARD_SHOT_DAMAGE, cooldownMs: 230, velocityY: -650 };
 }
